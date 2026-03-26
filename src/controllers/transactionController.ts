@@ -98,7 +98,8 @@ export class TransactionController {
 
   static async getSummary(req: AuthRequest, res: Response) {
     try {
-      const summary = await TransactionService.getSummary(req.user!.userId);
+      const timezone = typeof req.query.timezone === "string" ? req.query.timezone : undefined;
+      const summary = await TransactionService.getSummary(req.user!.userId, timezone);
 
       return res.status(200).json(summary);
     } catch (error) {

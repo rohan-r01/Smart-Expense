@@ -81,7 +81,7 @@ export function DashboardClient() {
     new Intl.DateTimeFormat(undefined, {
       month: "short",
       day: "numeric",
-      timeZone: state.summary?.timezone ?? "UTC"
+      timeZone: state.summary?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
     }).format(new Date(`${date}T00:00:00`));
 
   return (

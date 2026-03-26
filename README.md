@@ -58,7 +58,8 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
 Notes:
 
 - If your backend runs on a different port, update `NEXT_PUBLIC_API_BASE_URL` to match.
-- `APP_TIMEZONE` is used for timezone-aware trend summaries. If omitted, the backend falls back to server timezone logic.
+- The dashboard now sends the user's browser timezone to the backend for trend summaries.
+- `APP_TIMEZONE` is only a backend fallback if a client timezone is missing or invalid.
 
 ## Installation
 

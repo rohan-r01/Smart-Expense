@@ -4,7 +4,7 @@ import { categorizeTransaction } from "./categorizationService";
 import { BiasInsightService } from "./insight/biasInsightService";
 import mongoose from "mongoose";
 
-const SUMMARY_TIMEZONE = process.env.APP_TIMEZONE || process.env.TZ || "Asia/Dubai";
+const DEFAULT_SUMMARY_TIMEZONE = process.env.APP_TIMEZONE || process.env.TZ || "Asia/Dubai";
 
 interface CreateTransactionInput {
   userId: string;
@@ -32,6 +32,19 @@ function getTimeBucket(date: Date) {
   if (hour >= 5 && hour < 12) return "MORNING";
   if (hour >= 12 && hour < 18) return "AFTERNOON";
   return "NIGHT";
+}
+
+function resolveSummaryTimezone(timezone?: string) {
+  if (!timezone) {
+    return DEFAULT_SUMMARY_TIMEZONE;
+  }
+
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+    return timezone;
+  } catch {
+    return DEFAULT_SUMMARY_TIMEZONE;
+  }
 }
 
 export class TransactionService {
@@ -128,8 +141,9 @@ export class TransactionService {
     await BiasInsightService.generateForUser(userId);
   }
 
-  static async getSummary(userId: string) {
+  static async getSummary(userId: string, timezone?: string) {
     const objectUserId = new mongoose.Types.ObjectId(userId);
+    const summaryTimezone = resolveSummaryTimezone(timezone);
 
     const [totals, categoryBreakdown, timeBucketBreakdown, topMerchants, dailyTrend] = await Promise.all([
       Transaction.aggregate([
@@ -184,7 +198,7 @@ export class TransactionService {
               $dateToString: {
                 format: "%Y-%m-%d",
                 date: "$transactionDate",
-                timezone: SUMMARY_TIMEZONE
+                timezone: summaryTimezone
               }
             },
             totalAmount: { $sum: "$amount" }
@@ -216,7 +230,7 @@ export class TransactionService {
         totalAmount: item.totalAmount,
         count: item.count
       })),
-      timezone: SUMMARY_TIMEZONE,
+      timezone: summaryTimezone,
       dailyTrend: dailyTrend.map((item) => ({
         date: item._id,
         totalAmount: item.totalAmount

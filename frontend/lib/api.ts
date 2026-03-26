@@ -201,7 +201,11 @@ export const api = {
     );
   },
   async getTransactionSummary(accessToken: string) {
-    return apiRequest<TransactionSummary>("/api/transactions/summary", {
+    const timezone =
+      typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
+    const query = timezone ? `?timezone=${encodeURIComponent(timezone)}` : "";
+
+    return apiRequest<TransactionSummary>(`/api/transactions/summary${query}`, {
       accessToken
     });
   },
