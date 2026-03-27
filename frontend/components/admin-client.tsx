@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { api, type AdminUser, type CategoryRule } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { RouteGuard } from "@/components/route-guard";
+import { useToast } from "@/components/toast-provider";
 
 type RulePreset = "high_specific" | "standard" | "fallback" | "custom";
 
@@ -49,6 +50,7 @@ const initialRuleForm = {
 
 export function AdminClient() {
   const { tokens, refreshAccessToken } = useAuth();
+  const { showToast } = useToast();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [rules, setRules] = useState<CategoryRule[]>([]);
   const [search, setSearch] = useState("");
@@ -126,6 +128,7 @@ export function AdminClient() {
         const result = await withAccessToken((accessToken) => api.updateUserRole(accessToken, userId, role));
         setUsers((current) => current.map((user) => (user._id === userId ? result.user : user)));
         setSuccess(`Updated role to ${role}.`);
+        showToast(`Updated role to ${role}.`);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not update role.");
       }
@@ -172,10 +175,12 @@ export function AdminClient() {
           );
           setRules((current) => current.map((rule) => (rule._id === editingRuleId ? result.rule : rule)));
           setSuccess("Category rule updated.");
+          showToast("Category rule updated.");
         } else {
           const result = await withAccessToken((accessToken) => api.createCategoryRule(accessToken, payload));
           setRules((current) => [result.rule, ...current]);
           setSuccess("Category rule created.");
+          showToast("Category rule created.");
         }
 
         resetRuleForm();
@@ -200,6 +205,7 @@ export function AdminClient() {
           resetRuleForm();
         }
         setSuccess("Category rule deleted.");
+        showToast("Category rule deleted.");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not delete category rule.");
       }

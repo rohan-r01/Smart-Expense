@@ -5,6 +5,7 @@ import { api, type Transaction, type TransactionFilters } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { RouteGuard } from "@/components/route-guard";
 import { formatCurrency, type SupportedCurrency } from "@/lib/currency";
+import { useToast } from "@/components/toast-provider";
 
 const initialForm = {
   amount: "",
@@ -24,17 +25,36 @@ const initialFilters: TransactionFilters = {
   endDate: ""
 };
 
+function toDateTimeLocalValue(value: string) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 export function TransactionsClient() {
   const { tokens, refreshAccessToken, user } = useAuth();
+  const { showToast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [form, setForm] = useState(initialForm);
   const [filters, setFilters] = useState<TransactionFilters>(initialFilters);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const currency = (user?.currency as SupportedCurrency | undefined) ?? "USD";
+  const duplicateKeys = new Set(
+    transactions
+      .map((tx) => {
+        const dateKey = new Date(tx.transactionDate).toLocaleDateString("en-CA");
+        return `${tx.merchant.trim().toLowerCase()}::${tx.amount.toFixed(2)}::${dateKey}`;
+      })
+      .filter((key, index, list) => list.indexOf(key) !== index)
+  );
 
   const loadTransactions = async (accessToken: string, activeFilters: TransactionFilters = filters) => {
     const result = await api.getTransactions(accessToken, activeFilters);
@@ -78,19 +98,17 @@ export function TransactionsClient() {
       amount: transaction.amount.toString(),
       merchant: transaction.merchant,
       description: transaction.description,
-      transactionDate: new Date(transaction.transactionDate).toISOString().slice(0, 16),
+      transactionDate: toDateTimeLocalValue(transaction.transactionDate),
       category: transaction.category,
       saveAsRule: false,
       ruleKeyword: transaction.merchant.toLowerCase()
     });
-    setSuccess(null);
     setError(null);
   };
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-    setSuccess(null);
 
     startTransition(async () => {
       const accessToken = tokens?.accessToken ?? (await refreshAccessToken());
@@ -110,10 +128,8 @@ export function TransactionsClient() {
             saveAsRule: form.saveAsRule,
             ruleKeyword: form.ruleKeyword
           });
-          setSuccess(
-            form.saveAsRule
-              ? "Transaction updated, insights refreshed, and a reusable category rule was saved."
-              : "Transaction updated and insights refreshed."
+          showToast(
+            form.saveAsRule ? "Transaction updated and saved as a reusable rule." : "Transaction updated."
           );
         } else {
           await api.createTransaction(accessToken, {
@@ -122,7 +138,7 @@ export function TransactionsClient() {
             description: form.description,
             transactionDate: form.transactionDate
           });
-          setSuccess("Transaction created and backend insight generation triggered.");
+          showToast("Transaction created.");
         }
 
         await loadTransactions(accessToken, filters);
@@ -138,7 +154,6 @@ export function TransactionsClient() {
     if (!confirmed) return;
 
     setError(null);
-    setSuccess(null);
 
     startTransition(async () => {
       const accessToken = tokens?.accessToken ?? (await refreshAccessToken());
@@ -153,9 +168,37 @@ export function TransactionsClient() {
         if (editingId === transactionId) {
           resetForm();
         }
-        setSuccess("Transaction deleted and insights refreshed.");
+        showToast("Transaction deleted.");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not delete transaction.");
+      }
+    });
+  };
+
+  const exportCsv = () => {
+    setError(null);
+
+    startTransition(async () => {
+      const accessToken = tokens?.accessToken ?? (await refreshAccessToken());
+      if (!accessToken) {
+        setError("Your session expired. Please log in again.");
+        return;
+      }
+
+      try {
+        const csv = await api.exportTransactionsCsv(accessToken, filters);
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "transactions.csv";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        showToast("CSV export downloaded.");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not export transactions.");
       }
     });
   };
@@ -168,129 +211,133 @@ export function TransactionsClient() {
             <h1>Transactions</h1>
             <p className="muted">Create, filter, edit, and delete transactions with live recategorization.</p>
           </div>
+          <button className="button-secondary" type="button" onClick={exportCsv}>
+            Export CSV
+          </button>
         </div>
 
         <div className="dashboard-grid transactions-layout">
           <section className="form-card span-5 transactions-form-card">
-            <h2>{editingId ? "Edit transaction" : "New transaction"}</h2>
-            <p className="muted">
-              {editingId ? "Update the record and refresh its categorization." : "Post directly to `/api/transactions` with your bearer token."}
-            </p>
+            <div className="transactions-form-scroll">
+              <h2>{editingId ? "Edit transaction" : "New transaction"}</h2>
+              <p className="muted">
+                {editingId ? "Update the record and refresh its categorization." : "Post directly to `/api/transactions` with your bearer token."}
+              </p>
 
-            {error ? <div className="banner banner-error">{error}</div> : null}
-            {success ? <div className="banner banner-success">{success}</div> : null}
+              {error ? <div className="banner banner-error">{error}</div> : null}
 
-            <form className="form-grid transactions-form-grid" onSubmit={submit}>
-              <div className="field">
-                <label htmlFor="amount">Amount</label>
-                <input
-                  id="amount"
-                  min="0"
-                  name="amount"
-                  placeholder="45.50"
-                  step="0.01"
-                  type="number"
-                  value={form.amount}
-                  onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-                />
-              </div>
+              <form className="form-grid transactions-form-grid" onSubmit={submit}>
+                <div className="field">
+                  <label htmlFor="amount">Amount</label>
+                  <input
+                    id="amount"
+                    min="0"
+                    name="amount"
+                    placeholder="45.50"
+                    step="0.01"
+                    type="number"
+                    value={form.amount}
+                    onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+                  />
+                </div>
 
-              <div className="field">
-                <label htmlFor="merchant">Merchant</label>
-                <input
-                  id="merchant"
-                  name="merchant"
-                  placeholder="Uber, Netflix, Zomato..."
-                  type="text"
-                  value={form.merchant}
-                  onChange={(event) => setForm((current) => ({ ...current, merchant: event.target.value }))}
-                />
-              </div>
+                <div className="field">
+                  <label htmlFor="merchant">Merchant</label>
+                  <input
+                    id="merchant"
+                    name="merchant"
+                    placeholder="Uber, Netflix, Zomato..."
+                    type="text"
+                    value={form.merchant}
+                    onChange={(event) => setForm((current) => ({ ...current, merchant: event.target.value }))}
+                  />
+                </div>
 
-              <div className="field">
-                <label htmlFor="description">Description</label>
-                <textarea
-                  id="description"
-                  name="description"
-                  placeholder="Short context for this expense"
-                  rows={3}
-                  value={form.description}
-                  onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                />
-              </div>
+                <div className="field">
+                  <label htmlFor="description">Description</label>
+                  <textarea
+                    id="description"
+                    name="description"
+                    placeholder="Short context for this expense"
+                    rows={3}
+                    value={form.description}
+                    onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                  />
+                </div>
 
-              <div className="field">
-                <label htmlFor="transactionDate">Transaction date</label>
-                <input
-                  id="transactionDate"
-                  name="transactionDate"
-                  type="datetime-local"
-                  value={form.transactionDate}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, transactionDate: event.target.value }))
-                  }
-                />
-              </div>
+                <div className="field">
+                  <label htmlFor="transactionDate">Transaction date</label>
+                  <input
+                    id="transactionDate"
+                    name="transactionDate"
+                    type="datetime-local"
+                    value={form.transactionDate}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, transactionDate: event.target.value }))
+                    }
+                  />
+                </div>
 
-              {editingId ? (
-                <>
-                  <div className="field">
-                    <label htmlFor="category">Correct category</label>
-                    <select
-                      id="category"
-                      value={form.category}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          category: event.target.value as Transaction["category"]
-                        }))
-                      }
-                    >
-                      <option value="FOOD">Food</option>
-                      <option value="TRANSPORT">Transport</option>
-                      <option value="ENTERTAINMENT">Entertainment</option>
-                      <option value="UTILITIES">Utilities</option>
-                      <option value="OTHER">Other</option>
-                    </select>
-                  </div>
-
-                  <div className="field">
-                    <label htmlFor="ruleKeyword">Keyword to learn</label>
-                    <input
-                      id="ruleKeyword"
-                      placeholder="Usually the merchant name"
-                      type="text"
-                      value={form.ruleKeyword}
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, ruleKeyword: event.target.value }))
-                      }
-                    />
-                  </div>
-
-                  <label className="toggle-row">
-                    <input
-                      checked={form.saveAsRule}
-                      type="checkbox"
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, saveAsRule: event.target.checked }))
-                      }
-                    />
-                    <span>Create or update a reusable category rule from this correction</span>
-                  </label>
-                </>
-              ) : null}
-
-              <div className="inline-actions compact-actions">
-                <button className="button" disabled={isPending} type="submit">
-                  {isPending ? "Saving..." : editingId ? "Update transaction" : "Save transaction"}
-                </button>
                 {editingId ? (
-                  <button className="button-secondary" type="button" onClick={resetForm}>
-                    Cancel edit
-                  </button>
+                  <>
+                    <div className="field">
+                      <label htmlFor="category">Correct category</label>
+                      <select
+                        id="category"
+                        value={form.category}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            category: event.target.value as Transaction["category"]
+                          }))
+                        }
+                      >
+                        <option value="FOOD">Food</option>
+                        <option value="TRANSPORT">Transport</option>
+                        <option value="ENTERTAINMENT">Entertainment</option>
+                        <option value="UTILITIES">Utilities</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </div>
+
+                    <div className="field">
+                      <label htmlFor="ruleKeyword">Keyword to learn</label>
+                      <input
+                        id="ruleKeyword"
+                        placeholder="Usually the merchant name"
+                        type="text"
+                        value={form.ruleKeyword}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, ruleKeyword: event.target.value }))
+                        }
+                      />
+                    </div>
+
+                    <label className="toggle-row">
+                      <input
+                        checked={form.saveAsRule}
+                        type="checkbox"
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, saveAsRule: event.target.checked }))
+                        }
+                      />
+                      <span>Create or update a reusable category rule from this correction</span>
+                    </label>
+                  </>
                 ) : null}
-              </div>
-            </form>
+
+                <div className="inline-actions compact-actions">
+                  <button className="button" disabled={isPending} type="submit">
+                    {isPending ? "Saving..." : editingId ? "Update transaction" : "Save transaction"}
+                  </button>
+                  {editingId ? (
+                    <button className="button-secondary" type="button" onClick={resetForm}>
+                      Cancel edit
+                    </button>
+                  ) : null}
+                </div>
+              </form>
+            </div>
           </section>
 
           <section className="list-card span-7 transactions-history-card">
@@ -385,6 +432,12 @@ export function TransactionsClient() {
                       <span className="pill">{tx.category}</span>
                       <span className="pill">{Math.round(tx.categoryConfidence * 100)}% confidence</span>
                       <span className="pill">{tx.timeBucket}</span>
+                      {tx.isRecurring ? <span className="pill pill-low">Recurring</span> : null}
+                      {duplicateKeys.has(
+                        `${tx.merchant.trim().toLowerCase()}::${tx.amount.toFixed(2)}::${new Date(tx.transactionDate).toLocaleDateString("en-CA")}`
+                      ) ? (
+                        <span className="pill pill-medium">Possible duplicate</span>
+                      ) : null}
                     </div>
                     <div className="footnote">{tx.categorizationReason}</div>
                     <div className="inline-actions compact-actions transaction-row-actions">

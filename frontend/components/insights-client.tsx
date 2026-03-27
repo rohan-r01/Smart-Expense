@@ -4,9 +4,11 @@ import { useEffect, useState, useTransition } from "react";
 import { api, type BiasInsight } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { RouteGuard } from "@/components/route-guard";
+import { useToast } from "@/components/toast-provider";
 
 export function InsightsClient() {
   const { tokens, refreshAccessToken } = useAuth();
+  const { showToast } = useToast();
   const [insights, setInsights] = useState<BiasInsight[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -63,6 +65,7 @@ export function InsightsClient() {
             ? "Insights regenerated from current transactions."
             : "No insight met the detector thresholds yet."
         );
+        showToast(result.insights.length ? "Insights regenerated." : "No insights met the threshold.", "info");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not generate insights.");
       }

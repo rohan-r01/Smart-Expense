@@ -3,6 +3,7 @@ import { Instrument_Serif, Space_Grotesk } from "next/font/google";
 import "@/app/globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 import { SiteHeader } from "@/components/site-header";
+import { ToastProvider } from "@/components/toast-provider";
 
 const displayFont = Instrument_Serif({
   subsets: ["latin"],
@@ -28,8 +29,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         style={{ fontFamily: "var(--font-body)" }}
       >
         <AuthProvider>
-          <SiteHeader />
-          {children}
+          <ToastProvider>
+            <SiteHeader />
+            {children}
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

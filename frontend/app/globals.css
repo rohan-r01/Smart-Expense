@@ -347,48 +347,13 @@ select {
   background: linear-gradient(90deg, var(--accent), #f59e0b);
 }
 
-.trend-shell {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 14px;
-  align-items: stretch;
+.chart-bar-fill-danger {
+  background: linear-gradient(90deg, #dc2626, #ef4444);
 }
 
-.trend-axis {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-end;
-  min-height: 180px;
-  color: var(--muted);
-  font-size: 0.84rem;
-}
-
-.trend-chart {
-  display: flex;
-  align-items: end;
-  gap: 12px;
-  min-height: 180px;
-  padding-bottom: 4px;
-}
-
-.trend-point {
-  flex: 1 1 0;
-  display: grid;
-  gap: 10px;
-  justify-items: center;
-}
-
-.trend-bar {
+.trend-chart-card-shell {
   width: 100%;
-  min-height: 16px;
-  border-radius: 18px 18px 6px 6px;
-  background: linear-gradient(180deg, var(--brand), rgba(15, 118, 110, 0.35));
-}
-
-.trend-value {
-  color: var(--muted);
-  font-size: 0.8rem;
+  height: 280px;
 }
 
 .field {
@@ -465,6 +430,58 @@ select {
 .empty-state {
   background: rgba(255, 255, 255, 0.45);
   color: var(--muted);
+}
+
+.toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.toast-close {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  opacity: 0.72;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+.toast-success {
+  background: rgba(240, 253, 250, 0.92);
+  color: #134e4a;
+}
+
+.toast-error {
+  background: rgba(254, 242, 242, 0.94);
+  color: #7f1d1d;
+}
+
+.toast-info {
+  background: rgba(255, 251, 235, 0.94);
+  color: #92400e;
 }
 
 .item {
@@ -577,6 +594,7 @@ select {
 
 .transactions-form-card,
 .transactions-history-list,
+.transactions-form-scroll,
 .insights-list,
 .dashboard-scroll-list,
 .admin-scroll-list,
@@ -588,6 +606,7 @@ body {
 
 .transactions-form-card::-webkit-scrollbar,
 .transactions-history-list::-webkit-scrollbar,
+.transactions-form-scroll::-webkit-scrollbar,
 .insights-list::-webkit-scrollbar,
 .dashboard-scroll-list::-webkit-scrollbar,
 .admin-scroll-list::-webkit-scrollbar,
@@ -596,7 +615,8 @@ body::-webkit-scrollbar {
   width: 10px;
 }
 
-.transactions-form-card {
+.transactions-form-card,
+.transactions-form-scroll {
   scrollbar-gutter: auto;
 }
 
@@ -610,6 +630,7 @@ body::-webkit-scrollbar {
 
 .transactions-form-card::-webkit-scrollbar-track,
 .transactions-history-list::-webkit-scrollbar-track,
+.transactions-form-scroll::-webkit-scrollbar-track,
 .insights-list::-webkit-scrollbar-track,
 .dashboard-scroll-list::-webkit-scrollbar-track,
 .admin-scroll-list::-webkit-scrollbar-track,
@@ -621,6 +642,7 @@ body::-webkit-scrollbar-track {
 
 .transactions-form-card::-webkit-scrollbar-thumb,
 .transactions-history-list::-webkit-scrollbar-thumb,
+.transactions-form-scroll::-webkit-scrollbar-thumb,
 .insights-list::-webkit-scrollbar-thumb,
 .dashboard-scroll-list::-webkit-scrollbar-thumb,
 .admin-scroll-list::-webkit-scrollbar-thumb,
@@ -633,6 +655,7 @@ body::-webkit-scrollbar-thumb {
 
 .transactions-form-card::-webkit-scrollbar-thumb:hover,
 .transactions-history-list::-webkit-scrollbar-thumb:hover,
+.transactions-form-scroll::-webkit-scrollbar-thumb:hover,
 .insights-list::-webkit-scrollbar-thumb:hover,
 .dashboard-scroll-list::-webkit-scrollbar-thumb:hover,
 .admin-scroll-list::-webkit-scrollbar-thumb:hover,
@@ -708,6 +731,12 @@ body::-webkit-scrollbar-thumb:hover {
     border-radius: 24px;
   }
 
+  .dashboard-budget-form {
+    grid-template-columns: 1fr 1fr auto;
+    align-items: flex-end;
+    margin-bottom: 12px;
+  }
+
   .transactions-page-shell {
     padding-top: 12px;
     padding-bottom: 20px;
@@ -742,8 +771,16 @@ body::-webkit-scrollbar-thumb:hover {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    overflow: visible;
+    overflow: hidden;
     padding: 18px;
+  }
+
+  .transactions-form-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 6px;
   }
 
   .transactions-history-card {
@@ -940,7 +977,7 @@ body::-webkit-scrollbar-thumb:hover {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
-    align-items: end;
+    align-items: flex-end;
   }
 
   .admin-toolbar-actions {

@@ -25,6 +25,14 @@ export type Transaction = {
   createdAt: string;
 };
 
+export type Budget = {
+  _id: string;
+  category: Transaction["category"];
+  limitAmount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type TransactionFilters = {
   category?: string;
   timeBucket?: string;
@@ -80,6 +88,26 @@ export type TransactionSummary = {
     totalAmount: number;
     count: number;
   }>;
+  recurringMerchants: Array<{
+    merchant: string;
+    amount: number;
+    occurrences: number;
+  }>;
+  duplicateCandidates: Array<{
+    merchant: string;
+    amount: number;
+    transactionDate: string;
+    occurrences: number;
+    transactionIds: string[];
+  }>;
+  budgetProgress: Array<{
+    category: string;
+    limitAmount: number;
+    spentAmount: number;
+    remainingAmount: number;
+    usageRatio: number;
+    status: "HEALTHY" | "WARNING" | "EXCEEDED";
+  }>;
   dailyTrend: Array<{
     date: string;
     totalAmount: number;
@@ -91,7 +119,7 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:4000";
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   accessToken?: string | null;
 };
@@ -208,6 +236,34 @@ export const api = {
     return apiRequest<TransactionSummary>(`/api/transactions/summary${query}`, {
       accessToken
     });
+  },
+  async getBudgets(accessToken: string) {
+    return apiRequest<{ budgets: Budget[] }>("/api/transactions/budgets", {
+      accessToken
+    });
+  },
+  async upsertBudget(accessToken: string, category: Transaction["category"], limitAmount: number) {
+    return apiRequest<{ message: string; budget: Budget }>(`/api/transactions/budgets/${category}`, {
+      method: "PUT",
+      accessToken,
+      body: { limitAmount }
+    });
+  },
+  async exportTransactionsCsv(accessToken: string, filters: TransactionFilters = {}) {
+    const response = await fetch(`${API_BASE_URL}/api/transactions/export${api.buildTransactionQuery(filters)}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      },
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.message ?? "Could not export transactions");
+    }
+
+    return response.text();
   },
   async createTransaction(
     accessToken: string,
