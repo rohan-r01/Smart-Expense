@@ -23,6 +23,7 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<string | null>;
   updateCurrency: (currency: SupportedCurrency) => Promise<void>;
+  updatePreferences: (input: { currency?: SupportedCurrency; timezone?: string }) => Promise<void>;
 };
 
 const STORAGE_KEY = "smart-expense-auth";
@@ -105,7 +106,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
           throw new Error("No active session");
         }
 
-        const result = await api.updateCurrency(tokens.accessToken, currency);
+        const result = await api.updatePreferences(tokens.accessToken, { currency });
+        persist({
+          accessToken: result.accessToken,
+          refreshToken: tokens.refreshToken
+        });
+      },
+      async updatePreferences(input) {
+        if (!tokens?.accessToken) {
+          throw new Error("No active session");
+        }
+
+        const result = await api.updatePreferences(tokens.accessToken, input);
         persist({
           accessToken: result.accessToken,
           refreshToken: tokens.refreshToken

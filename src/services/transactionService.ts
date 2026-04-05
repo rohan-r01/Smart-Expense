@@ -28,6 +28,15 @@ interface UpdateTransactionInput {
 }
 
 type BudgetCategory = "FOOD" | "TRANSPORT" | "ENTERTAINMENT" | "UTILITIES" | "OTHER";
+type RecurringForecast = {
+  merchant: string;
+  amount: number;
+  occurrences: number;
+  cadenceLabel: string;
+  averageIntervalDays: number;
+  estimatedNextDate: string;
+  confidence: "MEDIUM" | "HIGH";
+};
 
 function getTimeBucket(date: Date) {
   const hour = date.getHours();
@@ -65,6 +74,79 @@ function formatDateKey(date: Date, timezone: string) {
     month: "2-digit",
     day: "2-digit"
   }).format(date);
+}
+
+function differenceInDays(left: Date, right: Date) {
+  return Math.max(1, Math.round((left.getTime() - right.getTime()) / (1000 * 60 * 60 * 24)));
+}
+
+function addDays(date: Date, days: number) {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function getCadenceLabel(intervalDays: number) {
+  if (intervalDays <= 10) return "Weekly-ish";
+  if (intervalDays <= 20) return "Bi-weekly-ish";
+  if (intervalDays <= 40) return "Monthly-ish";
+  if (intervalDays <= 100) return "Quarterly-ish";
+  return "Long-cycle";
+}
+
+function buildRecurringForecast(
+  transactions: Array<{
+    _id: unknown;
+    merchant: string;
+    amount: number;
+    transactionDate: Date;
+    isRecurring: boolean;
+  }>,
+  timezone: string
+) {
+  const recurringGroups = new Map<string, typeof transactions>();
+
+  for (const transaction of transactions) {
+    if (!transaction.isRecurring) continue;
+
+    const key = `${normalizeMerchant(transaction.merchant)}::${roundAmount(transaction.amount)}`;
+    const group = recurringGroups.get(key) ?? [];
+    group.push(transaction);
+    recurringGroups.set(key, group);
+  }
+
+  const forecasts: RecurringForecast[] = [];
+
+  for (const group of recurringGroups.values()) {
+    if (group.length < 3) continue;
+
+    const sorted = [...group].sort(
+      (left, right) => new Date(left.transactionDate).getTime() - new Date(right.transactionDate).getTime()
+    );
+
+    const intervals: number[] = [];
+
+    for (let index = 1; index < sorted.length; index += 1) {
+      intervals.push(differenceInDays(new Date(sorted[index].transactionDate), new Date(sorted[index - 1].transactionDate)));
+    }
+
+    const averageIntervalDays = Math.max(
+      1,
+      Math.round(intervals.reduce((sum, value) => sum + value, 0) / intervals.length)
+    );
+    const lastDate = new Date(sorted[sorted.length - 1].transactionDate);
+    const nextDate = addDays(lastDate, averageIntervalDays);
+
+    forecasts.push({
+      merchant: sorted[0].merchant,
+      amount: sorted[0].amount,
+      occurrences: sorted.length,
+      cadenceLabel: getCadenceLabel(averageIntervalDays),
+      averageIntervalDays,
+      estimatedNextDate: formatDateKey(nextDate, timezone),
+      confidence: sorted.length >= 4 ? "HIGH" : "MEDIUM"
+    });
+  }
+
+  return forecasts.sort((left, right) => left.estimatedNextDate.localeCompare(right.estimatedNextDate)).slice(0, 5);
 }
 
 async function recalculateRecurringFlags(userId: string) {
@@ -308,6 +390,7 @@ export class TransactionService {
     const recurringMerchants = Array.from(recurringMap.values())
       .sort((left, right) => right.occurrences - left.occurrences)
       .slice(0, 5);
+    const recurringForecast = buildRecurringForecast(allTransactions, summaryTimezone);
 
     const duplicateCandidates = Array.from(duplicateMap.values())
       .filter((item) => item.occurrences > 1)
@@ -348,6 +431,7 @@ export class TransactionService {
         count: item.count
       })),
       recurringMerchants,
+      recurringForecast,
       duplicateCandidates,
       budgetProgress,
       timezone: summaryTimezone,

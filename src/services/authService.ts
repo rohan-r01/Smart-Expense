@@ -5,11 +5,12 @@ import { hashPassword, verifyPassword } from "../utils/auth";
 import { SUPPORTED_CURRENCIES } from "../models/User";
 
 export class AuthService {
-    static async register({ email, password, currency }: any) {
+    static async register({ email, password, currency, timezone }: any) {
         if (!email || !password)
             throw { status: 400, message: "Email and password required" };
 
         const normalizedCurrency = currency && SUPPORTED_CURRENCIES.includes(currency) ? currency : "USD";
+        const normalizedTimezone = typeof timezone === "string" && timezone.trim() ? timezone.trim() : "UTC";
 
         const existing = await User.findOne({ email });
         if (existing)
@@ -17,9 +18,14 @@ export class AuthService {
 
         const passwordHash = await hashPassword(password);
 
-        const user = await User.create({ email, passwordHash, role: "USER", currency: normalizedCurrency });
+        const user = await User.create({ email, passwordHash, role: "USER", currency: normalizedCurrency, timezone: normalizedTimezone });
 
-        const accessToken = generateAccessToken({ userId: user._id.toString(), role: user.role, currency: user.currency });
+        const accessToken = generateAccessToken({
+            userId: user._id.toString(),
+            role: user.role,
+            currency: user.currency,
+            timezone: user.timezone
+        });
 
         const refreshToken = generateRefreshToken();
 
@@ -40,7 +46,12 @@ export class AuthService {
         if (!valid)
             throw { status: 401, message: "Invalid credentials" };
 
-        const accessToken = generateAccessToken({ userId: user._id.toString(), role: user.role, currency: user.currency });
+        const accessToken = generateAccessToken({
+            userId: user._id.toString(),
+            role: user.role,
+            currency: user.currency,
+            timezone: user.timezone
+        });
 
         const refreshToken = generateRefreshToken();
 
@@ -62,35 +73,77 @@ export class AuthService {
             throw { status: 403, message: "Refresh token expired" };
         }
 
-        const user = await User.findById(stored.userId).select("_id role currency").lean();
+        const user = await User.findById(stored.userId).select("_id role currency timezone").lean();
         if (!user) {
             await stored.deleteOne();
             throw { status: 403, message: "User no longer exists" };
         }
 
-        const accessToken = generateAccessToken({ userId: stored.userId.toString(), role: user.role, currency: user.currency });
+        const accessToken = generateAccessToken({
+            userId: stored.userId.toString(),
+            role: user.role,
+            currency: user.currency,
+            timezone: user.timezone
+        });
 
         return { accessToken };
     }
 
-    static async updateCurrency(userId: string, currency: string) {
-        if (!SUPPORTED_CURRENCIES.includes(currency as (typeof SUPPORTED_CURRENCIES)[number])) {
-            throw { status: 400, message: "Unsupported currency" };
-        }
-
-        const user = await User.findByIdAndUpdate(
-            userId,
-            { currency },
-            { new: true, runValidators: true }
-        ).select("_id role currency").lean();
+    static async getProfile(userId: string) {
+        const user = await User.findById(userId).select("_id email role currency timezone createdAt").lean();
 
         if (!user) {
             throw { status: 404, message: "User not found" };
         }
 
-        const accessToken = generateAccessToken({ userId: user._id.toString(), role: user.role, currency: user.currency });
+        return { user };
+    }
 
-        return { accessToken, currency: user.currency };
+    static async updatePreferences(userId: string, input: { currency?: string; timezone?: string }) {
+        const updatePayload: { currency?: string; timezone?: string } = {};
+
+        if (input.currency !== undefined) {
+            if (!SUPPORTED_CURRENCIES.includes(input.currency as (typeof SUPPORTED_CURRENCIES)[number])) {
+                throw { status: 400, message: "Unsupported currency" };
+            }
+
+            updatePayload.currency = input.currency;
+        }
+
+        if (input.timezone !== undefined) {
+            if (typeof input.timezone !== "string" || !input.timezone.trim()) {
+                throw { status: 400, message: "Timezone is required" };
+            }
+
+            updatePayload.timezone = input.timezone.trim();
+        }
+
+        if (!Object.keys(updatePayload).length) {
+            throw { status: 400, message: "No preference fields provided" };
+        }
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            updatePayload,
+            { new: true, runValidators: true }
+        ).select("_id role currency timezone").lean();
+
+        if (!user) {
+            throw { status: 404, message: "User not found" };
+        }
+
+        const accessToken = generateAccessToken({
+            userId: user._id.toString(),
+            role: user.role,
+            currency: user.currency,
+            timezone: user.timezone
+        });
+
+        return { accessToken, currency: user.currency, timezone: user.timezone };
+    }
+
+    static async updateCurrency(userId: string, currency: string) {
+        return AuthService.updatePreferences(userId, { currency });
     }
 
     static async logout(refreshToken: string) {

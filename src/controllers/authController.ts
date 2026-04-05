@@ -47,4 +47,25 @@ export class AuthController {
             res.status(err.status || 500).json({ message: err.message });
         }
     }
+
+    static async getProfile(req: AuthRequest, res: Response) {
+        try {
+            const result = await AuthService.getProfile(req.user!.userId);
+            res.status(200).json(result);
+        } catch (err: any) {
+            res.status(err.status || 500).json({ message: err.message });
+        }
+    }
+
+    static async updatePreferences(req: AuthRequest, res: Response) {
+        try {
+            const result = await AuthService.updatePreferences(req.user!.userId, {
+                currency: req.body.currency,
+                timezone: req.body.timezone
+            });
+            res.status(200).json(result);
+        } catch (err: any) {
+            res.status(err.status || 500).json({ message: err.message });
+        }
+    }
 }

@@ -19,7 +19,10 @@ export default function RegisterPage() {
 
     startTransition(async () => {
       try {
-        const tokens = await api.register(form);
+        const tokens = await api.register({
+          ...form,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        });
         login(tokens);
         router.push("/dashboard");
       } catch (err) {

@@ -372,6 +372,10 @@ select {
   line-height: 1.4;
 }
 
+.dashboard-budget-form {
+  margin-bottom: 12px;
+}
+
 .preset-summary {
   display: flex;
   gap: 8px;
@@ -535,6 +539,29 @@ select {
 
 .auth-card {
   width: min(560px, 100%);
+}
+
+.settings-page-shell {
+  padding-top: 12px;
+}
+
+.settings-layout {
+  align-items: start;
+}
+
+.settings-summary-card,
+.settings-form-card {
+  padding: 22px;
+  border-radius: 24px;
+}
+
+.settings-form-card h2,
+.settings-form-card p {
+  margin-top: 0;
+}
+
+.settings-form-grid {
+  gap: 12px;
 }
 
 .footnote {
@@ -995,9 +1022,22 @@ body::-webkit-scrollbar-thumb:hover {
     border-radius: 24px;
   }
 
+  .admin-list-card.admin-list-card-compact {
+    height: auto;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .admin-list-card.admin-list-card-compact .admin-scroll-list {
+    flex: 0 0 auto;
+    overflow: visible;
+    padding-right: 0;
+  }
+
   .admin-scroll-list {
     flex: 1 1 auto;
     min-height: 0;
+    align-content: start;
     overflow-y: auto;
     padding-right: 6px;
   }
@@ -1078,6 +1118,12 @@ body::-webkit-scrollbar-thumb:hover {
     min-height: clamp(360px, calc(100vh - 320px), 460px);
   }
 
+  .admin-list-card.admin-list-card-compact {
+    height: auto;
+    max-height: none;
+    min-height: 0;
+  }
+
   .admin-rule-form-card,
   .admin-rules-card {
     height: clamp(420px, calc(100vh - 250px), 560px);
@@ -1098,6 +1144,22 @@ body::-webkit-scrollbar-thumb:hover {
   .insights-grid,
   .admin-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-summary-grid,
+  .admin-grid {
+    gap: 14px;
+  }
+
+  .admin-summary-grid {
+    margin-bottom: 14px;
+  }
+
+  .admin-toolbar-card,
+  .admin-list-card,
+  .admin-rule-form-card,
+  .admin-rules-card {
+    margin-bottom: 14px;
   }
 
   .span-4,

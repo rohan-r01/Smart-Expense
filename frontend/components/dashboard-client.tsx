@@ -32,6 +32,7 @@ export function DashboardClient() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
+  const summaryTimezone = user?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   useEffect(() => {
     const load = async () => {
@@ -44,7 +45,7 @@ export function DashboardClient() {
         const [transactionsResult, insightsResult, summaryResult, budgetsResult] = await Promise.all([
           api.getTransactions(tokens.accessToken),
           api.getInsights(tokens.accessToken),
-          api.getTransactionSummary(tokens.accessToken),
+          api.getTransactionSummary(tokens.accessToken, summaryTimezone),
           api.getBudgets(tokens.accessToken)
         ]);
 
@@ -66,7 +67,7 @@ export function DashboardClient() {
           const [transactionsResult, insightsResult, summaryResult, budgetsResult] = await Promise.all([
             api.getTransactions(refreshed),
             api.getInsights(refreshed),
-            api.getTransactionSummary(refreshed),
+            api.getTransactionSummary(refreshed, summaryTimezone),
             api.getBudgets(refreshed)
           ]);
 
@@ -85,7 +86,7 @@ export function DashboardClient() {
     };
 
     void load();
-  }, [refreshAccessToken, tokens?.accessToken]);
+  }, [refreshAccessToken, summaryTimezone, tokens?.accessToken]);
 
   const latestTransactions = state.transactions.slice(0, 4);
   const strongestInsight = [...state.insights].sort((a, b) => b.percentage - a.percentage)[0];
@@ -132,7 +133,7 @@ export function DashboardClient() {
       try {
         await api.upsertBudget(accessToken, budgetForm.category, Number(budgetForm.limitAmount));
         const [summaryResult, budgetsResult] = await Promise.all([
-          api.getTransactionSummary(accessToken),
+          api.getTransactionSummary(accessToken, summaryTimezone),
           api.getBudgets(accessToken)
         ]);
         setState((current) => ({
@@ -379,23 +380,34 @@ export function DashboardClient() {
 
           <div className="list-card span-5 dashboard-chart-card">
             <div className="section-title">
-              <h2>Recurring merchants</h2>
-              <span className="pill">Auto-detected</span>
+              <h2>Recurring forecast</h2>
+              <span className="pill">Expected next</span>
             </div>
-            {state.summary?.recurringMerchants.length ? (
+            {state.summary?.recurringForecast.length ? (
               <div className="data-list">
-                {state.summary.recurringMerchants.map((item) => (
-                  <article className="item" key={`${item.merchant}-${item.amount}`}>
+                {state.summary.recurringForecast.map((item) => (
+                  <article className="item" key={`${item.merchant}-${item.amount}-${item.estimatedNextDate}`}>
                     <div className="item-top">
                       <strong>{item.merchant}</strong>
-                      <span className="pill pill-low">{item.occurrences} repeats</span>
+                      <span className={`pill ${item.confidence === "HIGH" ? "pill-low" : ""}`}>{item.confidence}</span>
                     </div>
-                    <div className="muted">{formatCurrency(item.amount, currency)} recurring amount pattern</div>
+                    <div>{formatCurrency(item.amount, currency)}</div>
+                    <div className="muted">
+                      {item.cadenceLabel} pattern from {item.occurrences} charges, next expected around{" "}
+                      {new Date(`${item.estimatedNextDate}T00:00:00`).toLocaleDateString(undefined, {
+                        timeZone: state.summary?.timezone ?? user?.timezone ?? "UTC",
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric"
+                      })}
+                    </div>
                   </article>
                 ))}
               </div>
             ) : (
-              <div className="empty-state">Recurring merchants appear after the same merchant and amount repeat.</div>
+              <div className="empty-state">
+                Recurring forecasts appear after the same merchant and amount repeat enough times to estimate a cadence.
+              </div>
             )}
           </div>
 

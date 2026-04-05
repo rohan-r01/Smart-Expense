@@ -11,6 +11,7 @@ export interface AuthRequest extends Request {
     userId: string;
     role: string;
     currency?: string;
+    timezone?: string;
   };
 }
 
@@ -28,6 +29,7 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
       userId: string;
       role: string;
       currency?: string;
+      timezone?: string;
       iat: number;
       exp: number;
     };
@@ -35,7 +37,8 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
     req.user = {
       userId: decoded.userId,
       role: decoded.role,
-      currency: decoded.currency
+      currency: decoded.currency,
+      timezone: decoded.timezone
     };
 
     next();

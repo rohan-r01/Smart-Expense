@@ -303,7 +303,7 @@ export function AdminClient() {
         </div>
 
         <div className="admin-grid">
-          <section className="list-card span-12 admin-list-card">
+          <section className={`list-card span-12 admin-list-card ${users.length <= 2 ? "admin-list-card-compact" : ""}`}>
             <div className="section-title">
               <h2>Users</h2>
               <span className="pill">{users.length} results</span>

@@ -8,6 +8,7 @@ export interface IUser extends Document {
     passwordHash: string;
     role: "USER" | "ADMIN";
     currency: SupportedCurrency;
+    timezone: string;
 };
 
 const UserSchema = new Schema<IUser> (
@@ -31,6 +32,10 @@ const UserSchema = new Schema<IUser> (
             type: String,
             enum: SUPPORTED_CURRENCIES,
             default: "USD"
+        },
+        timezone: {
+            type: String,
+            default: "UTC"
         }
     },
     { timestamps: true }

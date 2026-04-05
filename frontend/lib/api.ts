@@ -7,8 +7,18 @@ export type UserSession = {
   userId: string;
   role: string;
   currency?: string;
+  timezone?: string;
   exp?: number;
   iat?: number;
+};
+
+export type UserProfile = {
+  _id: string;
+  email: string;
+  role: "USER" | "ADMIN";
+  currency: string;
+  timezone: string;
+  createdAt: string;
 };
 
 export type Transaction = {
@@ -92,6 +102,15 @@ export type TransactionSummary = {
     merchant: string;
     amount: number;
     occurrences: number;
+  }>;
+  recurringForecast: Array<{
+    merchant: string;
+    amount: number;
+    occurrences: number;
+    cadenceLabel: string;
+    averageIntervalDays: number;
+    estimatedNextDate: string;
+    confidence: "MEDIUM" | "HIGH";
   }>;
   duplicateCandidates: Array<{
     merchant: string;
@@ -187,7 +206,7 @@ export const api = {
     const query = params.toString();
     return query ? `?${query}` : "";
   },
-  async register(input: { email: string; password: string }) {
+  async register(input: { email: string; password: string; timezone?: string }) {
     const payload = await apiRequest<{ token?: AuthTokens; accessToken?: string; refreshToken?: string }>(
       "/api/auth/register",
       { method: "POST", body: input }
@@ -220,6 +239,18 @@ export const api = {
       body: { currency }
     });
   },
+  async getProfile(accessToken: string) {
+    return apiRequest<{ user: UserProfile }>("/api/auth/me", {
+      accessToken
+    });
+  },
+  async updatePreferences(accessToken: string, input: { currency?: string; timezone?: string }) {
+    return apiRequest<{ accessToken: string; currency: string; timezone: string }>("/api/auth/preferences", {
+      method: "PATCH",
+      accessToken,
+      body: input
+    });
+  },
   async getTransactions(accessToken: string, filters: TransactionFilters = {}) {
     return apiRequest<{ count: number; transactions: Transaction[] }>(
       `/api/transactions${api.buildTransactionQuery(filters)}`,
@@ -228,10 +259,10 @@ export const api = {
       }
     );
   },
-  async getTransactionSummary(accessToken: string) {
-    const timezone =
-      typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
-    const query = timezone ? `?timezone=${encodeURIComponent(timezone)}` : "";
+  async getTransactionSummary(accessToken: string, timezone?: string) {
+    const resolvedTimezone =
+      timezone ?? (typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined);
+    const query = resolvedTimezone ? `?timezone=${encodeURIComponent(resolvedTimezone)}` : "";
 
     return apiRequest<TransactionSummary>(`/api/transactions/summary${query}`, {
       accessToken

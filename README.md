@@ -7,6 +7,7 @@ Smart Expense is a full-stack expense tracking app with:
 - JWT auth with refresh tokens
 - transaction categorization using category rules
 - bias insights based on spending behavior
+- budgets, recurring forecasts, and CSV export
 - admin tools for users and category-rule management
 
 ## Features
@@ -15,7 +16,9 @@ Smart Expense is a full-stack expense tracking app with:
 - Create, edit, delete, and filter transactions
 - Auto-categorize transactions using keyword rules
 - Generate spending insights by category, merchant, and time bucket
-- Dashboard summaries and lightweight charts
+- Dashboard summaries, charts, recurring forecasts, and duplicate hints
+- Budget tracking by category
+- Export filtered transactions to CSV
 - Admin user management
 - Admin category-rule management
 - User currency preference support
@@ -24,18 +27,18 @@ Smart Expense is a full-stack expense tracking app with:
 ## Tech Stack
 
 - Backend: Express, TypeScript, Mongoose, JWT, bcrypt
-- Frontend: Next.js, React, TypeScript
+- Frontend: Next.js, React, TypeScript, Recharts
 - Database: MongoDB
 
 ## Project Structure
 
 ```text
 smart-expense-backend/
-├─ src/                 # Express backend
-├─ frontend/            # Next.js frontend
-├─ scripts/             # Root dev helpers
-├─ dist/                # Backend build output
-└─ README.md
+|-- src/                 # Express backend
+|-- frontend/            # Next.js frontend
+|-- scripts/             # Root dev helpers
+|-- dist/                # Backend build output
+`-- README.md
 ```
 
 ## Environment Variables
@@ -58,8 +61,9 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
 Notes:
 
 - If your backend runs on a different port, update `NEXT_PUBLIC_API_BASE_URL` to match.
-- The dashboard now sends the user's browser timezone to the backend for trend summaries.
+- The dashboard sends the user's browser timezone to the backend for trend summaries.
 - `APP_TIMEZONE` is only a backend fallback if a client timezone is missing or invalid.
+- For phone or LAN testing, use your computer's local IP in `NEXT_PUBLIC_API_BASE_URL` instead of `localhost`.
 
 ## Installation
 
@@ -115,9 +119,9 @@ npm run dev
 ## Main API Areas
 
 - `/api/auth`
-  - register, login, refresh, logout, update currency
+  - register, login, refresh, logout, profile, update currency/preferences
 - `/api/transactions`
-  - create, list, filter, update, delete, summary
+  - create, list, filter, update, delete, summary, budgets, CSV export
 - `/api/insights`
   - fetch and generate insights
 - `/api/admin`
@@ -152,6 +156,16 @@ Currently supported:
 - `GBP`
 
 Amounts are stored as numbers and formatted in the frontend based on the user preference.
+
+## Budgets And Forecasts
+
+The dashboard now includes:
+
+- category budget tracking with progress states
+- recurring merchant detection
+- recurring payment forecasting based on repeated merchant + amount patterns
+- possible duplicate transaction hints
+- a recent spending trend chart powered by Recharts
 
 ## Suggested First Steps After Cloning
 
